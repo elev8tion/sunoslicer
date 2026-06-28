@@ -329,6 +329,14 @@ export default function SunoSlicerPro() {
         <input id="add-stems" type="file" accept="audio/*" multiple style={{ display: "none" }} onChange={onFileInput} />
       </div>
       <div style={S.body}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "9px 12px", marginBottom: 8, borderRadius: 8, background: "rgba(99,102,241,0.07)", border: "1px solid rgba(99,102,241,0.18)", fontSize: 11, color: "#9ca3af" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontWeight: 700, color: "#a5b4fc" }}><Scissors size={12} /> How to edit</span>
+          <span><strong style={{ color: "#c7c7d4" }}>1.</strong> Click a track to select it</span>
+          <span style={{ color: "#4b5563" }}>·</span>
+          <span><strong style={{ color: "#c7c7d4" }}>2.</strong> Drag across its waveform to silence a section</span>
+          <span style={{ color: "#4b5563" }}>·</span>
+          <span><Headphones size={10} style={{ verticalAlign: -1 }} /> <strong style={{ color: "#c7c7d4" }}>S</strong> solo &nbsp;<VolumeX size={10} style={{ verticalAlign: -1 }} /> <strong style={{ color: "#c7c7d4" }}>M</strong> mute &nbsp;<strong style={{ color: "#c7c7d4" }}>slider</strong> volume</span>
+        </div>
         {tracks.map(track => {
           const c = TRACK_COLORS[track.color % TRACK_COLORS.length];
           const isActive = track.id === activeId;
@@ -337,7 +345,13 @@ export default function SunoSlicerPro() {
             <div key={track.id} style={S.trackRow(isActive, c)} onClick={() => setActiveId(track.id)}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
                 <div style={{ width: 4, height: 20, borderRadius: 2, background: c.wave, opacity: eff > 0 ? 1 : 0.25 }} />
-                <span style={{ fontWeight: 700, fontSize: 12, color: c.label, flex: 1, minWidth: 60 }}>{track.name}</span>
+                <span style={{ fontWeight: 700, fontSize: 12, color: c.label, minWidth: 60 }}>{track.name}</span>
+                {isActive ? (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 10, fontSize: 9.5, fontWeight: 700, letterSpacing: "0.04em", background: c.bg, color: c.label, border: `1px solid ${c.border}` }}><Scissors size={9} /> EDITING — DRAG TO CUT</span>
+                ) : (
+                  <span style={{ fontSize: 10, color: "#555" }}>click to edit</span>
+                )}
+                <div style={{ flex: 1 }} />
                 <button style={S.sBtn(track.solo, "rgba(234,179,8,0.4)")} onClick={e => { e.stopPropagation(); toggleSolo(track.id); }}><Headphones size={10} /> S</button>
                 <button style={S.sBtn(track.muted, "rgba(239,68,68,0.3)")} onClick={e => { e.stopPropagation(); toggleMute(track.id); }}><VolumeX size={10} /> M</button>
                 <input type="range" min={0} max={1} step={0.01} value={track.volume} onChange={e => { e.stopPropagation(); setVolume(track.id, parseFloat(e.target.value)); }} onClick={e => e.stopPropagation()} style={{ width: 70, height: 4, appearance: "none", background: "rgba(255,255,255,0.1)", borderRadius: 2, outline: "none" }} />
@@ -345,6 +359,9 @@ export default function SunoSlicerPro() {
                 <button style={{ ...S.sBtn(false), color: "#555", padding: "3px 5px" }} onClick={e => { e.stopPropagation(); removeTrack(track.id); }}><X size={10} /></button>
               </div>
               <TrackWaveform track={track} duration={dur} curTime={curTime} viewStart={viewStart} viewDur={viewDur} isActive={isActive} onAddRegion={addRegion} onSeek={seek} color={c} />
+              {isActive && track.regions.length === 0 && (
+                <div style={{ marginTop: 5, fontSize: 10.5, color: c.label, opacity: 0.75, display: "flex", alignItems: "center", gap: 5 }}><Scissors size={10} /> Drag left-to-right across the waveform above to silence a section of {track.name.toLowerCase()}.</div>
+              )}
               {isActive && track.regions.length > 0 && (
                 <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: 3 }}>
                   {track.regions.map(r => (
@@ -376,7 +393,7 @@ export default function SunoSlicerPro() {
           </div>
           <div style={{ fontSize: 11, color: "#4b5563", marginTop: 4 }}>Exports all unmuted stems mixed with volumes and cut regions applied. Stereo 16-bit WAV.{anySoloed && <span style={{ color: "#eab308" }}> Solo active — only soloed tracks exported.</span>}</div>
         </div>
-        {activeTrack && (<div style={{ marginTop: 8, fontSize: 11, color: "#333", textAlign: "center" }}>Editing: <strong style={{ color: TRACK_COLORS[activeTrack.color % TRACK_COLORS.length].label }}>{activeTrack.name}</strong> — drag on waveform to mark sections for removal</div>)}
+        {activeTrack && (<div style={{ marginTop: 8, fontSize: 11, color: "#6b7280", textAlign: "center" }}>Editing <strong style={{ color: TRACK_COLORS[activeTrack.color % TRACK_COLORS.length].label }}>{activeTrack.name}</strong> — drag on its waveform to silence a section. Cuts appear as red blocks below; click a cut's ✕ to undo it.</div>)}
       </div>
     </div>
   );
