@@ -6,7 +6,7 @@ import {
 import TrackWaveform from "./TrackWaveform";
 import { formatTime, mixAndExport } from "../utils/audio";
 import { TRACK_COLORS, STEM_ORDER, guessStemName } from "../utils/constants";
-import { getServerInfo, startSeparation, checkStatus, fetchStem } from "../utils/api";
+import { getServerInfo, startSeparation, checkStatus, fetchStem, listJobs } from "../utils/api";
 
 function Spinner({ size = 20 }) {
   return (
@@ -25,6 +25,8 @@ export default function SunoSlicerPro() {
   const [sepModel, setSepModel] = useState("htdemucs_ft");
   const [uploadingFile, setUploadingFile] = useState(null);
   const [tracks, setTracks] = useState([]);
+  const [recentJobs, setRecentJobs] = useState([]);
+  const [loadingJobId, setLoadingJobId] = useState(null);
   const [playing, setPlaying] = useState(false);
   const [curTime, setCurTime] = useState(0);
   const [activeId, setActiveId] = useState(null);
@@ -52,9 +54,17 @@ export default function SunoSlicerPro() {
     return ctxRef.current;
   }, []);
 
+  const refreshJobs = useCallback(async () => {
+    try {
+      const jobs = await listJobs();
+      setRecentJobs(jobs.filter(j => j.status === "complete" && j.stems?.length));
+    } catch (e) { /* server may be offline; leave list as-is */ }
+  }, []);
+
   useEffect(() => {
     getServerInfo().then(info => { setServerInfo(info); setServerError(false); }).catch(() => setServerError(true));
-  }, []);
+    refreshJobs();
+  }, [refreshJobs]);
 
   const handleSeparate = useCallback(async (file) => {
     if (!file) return;
@@ -77,7 +87,7 @@ export default function SunoSlicerPro() {
       try {
         const status = await checkStatus(sepJobId);
         setSepStatus(status);
-        if (status.status === "complete") { setSeparating(false); await loadStemsFromJob(sepJobId, status.stems); }
+        if (status.status === "complete") { setSeparating(false); await loadStemsFromJob(sepJobId, status.stems); refreshJobs(); }
         else if (status.status === "error") { setSeparating(false); }
       } catch (e) {}
     };
@@ -106,6 +116,15 @@ export default function SunoSlicerPro() {
     if (newTracks.length > 0) setActiveId(newTracks[0].id);
     setCurTime(0); setZoom(1); setViewStart(0);
   }, [getCtx]);
+
+  const loadJob = useCallback(async (job) => {
+    setLoadingJobId(job.job_id);
+    try {
+      await loadStemsFromJob(job.job_id, job.stems);
+    } finally {
+      setLoadingJobId(null);
+    }
+  }, [loadStemsFromJob]);
 
   const addFiles = useCallback(async (files) => {
     const ac = getCtx();
@@ -246,6 +265,30 @@ export default function SunoSlicerPro() {
             <Plus size={18} style={{ marginBottom: 4, opacity: 0.5 }} />
             <div style={{ fontSize: 12 }}>Or drop pre-separated stems here to load directly</div>
           </div>
+          {recentJobs.length > 0 && (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <Headphones size={14} color="#6366f1" />
+                <span style={{ fontSize: 13, fontWeight: 700 }}>Recent Results</span>
+                <span style={{ fontSize: 11, color: "#6b7280" }}>— separated stems ready to load</span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {recentJobs.map(job => {
+                  const isLoading = loadingJobId === job.job_id;
+                  return (
+                    <div key={job.job_id} onClick={() => !loadingJobId && loadJob(job)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)", cursor: loadingJobId ? "default" : "pointer", opacity: loadingJobId && !isLoading ? 0.5 : 1 }}>
+                      <Cpu size={16} color="#6366f1" style={{ flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: "#e0e0ec", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{job.filename}</div>
+                        <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>{job.model} · {job.stems.length} stems · {job.stems.join(", ")}</div>
+                      </div>
+                      {isLoading ? <Spinner size={16} /> : <span style={{ fontSize: 11, fontWeight: 600, color: "#a5b4fc", display: "inline-flex", alignItems: "center", gap: 4, flexShrink: 0 }}><Download size={12} /> Load</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <div style={{ textAlign: "center", fontSize: 10, color: "#222", marginTop: 12 }}>Space = play/pause · Click track to select · Drag on waveform to cut · No API keys — runs 100% local</div>
         </div>
       </div>
