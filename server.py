@@ -135,6 +135,67 @@ def run_separation(job_id, input_path, model):
             jobs[job_id]["error"] = str(e)
 
 
+# ── Restore completed jobs from disk ─────────────────────────
+
+def restore_jobs():
+    """Rebuild the in-memory job registry from completed outputs on disk.
+
+    The `jobs` dict is otherwise lost on restart, which would empty the
+    "Recent Results" list in the UI even though the separated stems are
+    still saved under workspace/separated/. This scans that directory and
+    re-registers any job that has stem WAVs, so results survive restarts.
+    """
+    if not OUTPUT_DIR.exists():
+        return
+    restored = 0
+    for job_dir in sorted(OUTPUT_DIR.iterdir()):
+        if not job_dir.is_dir():
+            continue
+        job_id = job_dir.name
+        wavs = sorted(job_dir.rglob("*.wav"))
+        if not wavs:
+            continue
+        stem_dir = wavs[0].parent
+        # Layout is <job_id>/<model>/<trackname>/*.wav
+        try:
+            model = stem_dir.relative_to(job_dir).parts[0]
+        except (ValueError, IndexError):
+            model = DEFAULT_MODEL
+        if model not in MODELS:
+            model = DEFAULT_MODEL
+        stems = {w.stem: str(w) for w in sorted(stem_dir.glob("*.wav"))}
+        if not stems:
+            continue
+        # Prefer the original uploaded filename; fall back to the stem folder name
+        filename = None
+        upload_dir = UPLOAD_DIR / job_id
+        if upload_dir.exists():
+            uploaded = [f for f in sorted(upload_dir.iterdir()) if f.is_file()]
+            if uploaded:
+                filename = uploaded[0].name
+        if not filename:
+            filename = stem_dir.name
+        mtime = stem_dir.stat().st_mtime
+        with jobs_lock:
+            if job_id in jobs:
+                continue
+            jobs[job_id] = {
+                "status": "complete",
+                "progress": "Done!",
+                "model": model,
+                "filename": filename,
+                "file_size": 0,
+                "created_at": mtime,
+                "completed_at": mtime,
+                "stems": stems,
+                "stem_dir": str(stem_dir),
+                "error": None,
+            }
+            restored += 1
+    if restored:
+        print(f"  ♻️  Restored {restored} completed job(s) from disk")
+
+
 # ── Flask App ─────────────────────────────────────────────────
 
 app = Flask(__name__, static_folder="dist", static_url_path="")
@@ -268,6 +329,8 @@ def main():
     except ImportError:
         print("  ❌  Demucs not installed")
         print("      Run: pip install -r requirements.txt")
+
+    restore_jobs()
 
     print(f"\n  🌐  API:  http://{args.host}:{args.port}")
     print(f"  💡  Frontend: npm run dev → http://localhost:7866")
