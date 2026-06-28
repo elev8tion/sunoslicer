@@ -7,7 +7,9 @@ export const TRACK_COLORS = [
   { wave: "#ec4899", bg: "rgba(236,72,153,0.08)", border: "rgba(236,72,153,0.25)", label: "#ec4899" },
 ];
 
-export const STEM_NAMES = {
+export const STEM_ORDER = ["vocals", "drums", "bass", "other", "guitar", "piano"];
+
+export const STEM_LABELS = {
   vocals: "Vocals",
   drums: "Drums",
   bass: "Bass",
@@ -18,8 +20,8 @@ export const STEM_NAMES = {
 
 export function guessStemName(filename) {
   const lower = filename.toLowerCase();
-  for (const key of Object.keys(STEM_NAMES)) {
-    if (lower.includes(key)) return STEM_NAMES[key];
+  for (const key of Object.keys(STEM_LABELS)) {
+    if (lower.includes(key)) return STEM_LABELS[key];
   }
   return filename.replace(/\.[^.]+$/, "");
 }
