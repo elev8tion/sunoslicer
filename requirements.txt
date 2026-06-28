@@ -3,3 +3,4 @@ flask-cors>=4.0
 demucs
 torch
 torchaudio
+torchcodec  # required by torchaudio>=2.11 to write stem WAVs (needs ffmpeg)
