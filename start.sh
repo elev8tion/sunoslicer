@@ -6,7 +6,21 @@ echo "║        SunoSlicer Pro — Starting         ║"
 echo "╚══════════════════════════════════════════╝"
 echo ""
 
-PYTHON=$(command -v python3 || command -v python)
+# Always operate from the project root, regardless of where start.sh is called from
+cd "$(dirname "$0")" || exit 1
+
+# ── Python virtualenv (auto) ───────────────────────────────────────────────
+# torch/demucs need a compatible Python (3.12 recommended). We keep a local
+# .venv so the system Python is never touched. Created on first run, then reused.
+if [ ! -d ".venv" ]; then
+    VENV_PY=$(command -v python3.12 || command -v python3.13 || command -v python3 || command -v python)
+    echo "🐍  Creating virtualenv (.venv) with $VENV_PY ..."
+    "$VENV_PY" -m venv .venv || { echo "❌  Failed to create .venv"; exit 1; }
+fi
+
+# shellcheck disable=SC1091
+source .venv/bin/activate
+PYTHON="$(command -v python)"
 
 if [ ! -d "node_modules" ]; then
     echo "📦  Installing frontend dependencies..."
